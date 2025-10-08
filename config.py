@@ -1,4 +1,7 @@
+# 整合包模组路径
 MODS_DIR = '/home/yourname/.minecraft/mods'
+
+# 输出目录，保持默认即可
 WORK_DIR = 'work'
 EN_OUT_DIR = WORK_DIR + '/en'
 ZH_OUT_DIR = WORK_DIR + '/zh'
@@ -8,6 +11,7 @@ MERGED_MAP_FILE = WORK_DIR + '/merged/merged_en2zh.json'
 AE2_EN_OUT_DIR = WORK_DIR + '/ae2/en'
 AE2_ZH_OUT_DIR = WORK_DIR + '/ae2/zh'
 
+# AI 大模型配置
 openai_embed_base_url = ""
 openai_llm_base_url = ""
 openai_embed_model = "gte-multilingual-base"
