@@ -1,0 +1,7 @@
+*.iml
+venv
+.idea
+.vscode
+work
+chroma
+config.py
