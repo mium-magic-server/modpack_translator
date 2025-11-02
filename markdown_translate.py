@@ -48,20 +48,18 @@ def extract_ae2_markdown(mods_dir, en_output_dir):
             print(f"处理 ZIP 文件时出错: {zip_path}, 错误: {e}")
 
 def translate_ae2_markdown(en_output_dir, zh_output_dir):
-    vectorstore = load_translate_embed()
-
     def translate_worker(input_document, rel_path, output_file):
         dir_path = os.path.dirname(output_file)
         os.makedirs(dir_path, exist_ok=True)
         print(f"处理中: {rel_path}")
-        zh_document = translate_document(vectorstore, input_document)
+        zh_document = translate_document(input_document)
         print(f"处理完成: {rel_path}")
         print(zh_document)
         with open(output_file, 'w', encoding='utf-8') as f:
             f.write(zh_document)
         return True
 
-    with ThreadPoolExecutor(max_workers=8) as executor:
+    with ThreadPoolExecutor(max_workers=12) as executor:
         total = 0
         finished = 0
         futures = []

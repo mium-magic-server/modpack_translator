@@ -1,8 +1,9 @@
+import fnmatch
 import json
 import os
-import sys
+import shutil
 import zipfile
-import fnmatch
+
 
 # 读取 JSON 文件
 def read_json(file_path):
@@ -26,6 +27,25 @@ def parse_lang_to_json(lang_content):
                 key, value = line.split('=', 1)
                 result[key.strip()] = value.strip()
     return result
+
+def extract_minecraft_langs(version_json_file, en_output_dir, zh_output_dir):
+    version_info = read_json(version_json_file)
+    version_id = version_info['id']
+    asset_index_id = version_info['assetIndex']['id']
+    client_jar_dir = os.path.dirname(version_json_file)
+    client_jar_file = os.path.join(client_jar_dir, f'{version_id}.jar')
+    asset_dir = os.path.normpath(os.path.join(client_jar_dir, '..', '..', 'assets'))
+    asset_json_file = os.path.join(asset_dir, 'indexes', f'{asset_index_id}.json')
+    asset_index = read_json(asset_json_file)
+    zh_cn_lang_file_hash = asset_index['objects']['minecraft/lang/zh_cn.json']['hash']
+    zh_cn_lang_file_path = os.path.join(asset_dir, 'objects', zh_cn_lang_file_hash[:2], zh_cn_lang_file_hash)
+    en_output_file = os.path.join(en_output_dir, f'minecraft.json')
+    zh_output_file = os.path.join(zh_output_dir, f'minecraft.json')
+    with zipfile.ZipFile(client_jar_file, 'r') as zip_ref:
+        with zip_ref.open('assets/minecraft/lang/en_us.json') as src, open(en_output_file, 'wb') as out:
+            en_content = src.read()
+            out.write(en_content)
+    shutil.copy(zh_cn_lang_file_path, zh_output_file)
 
 def extract_mod_langs(mods_dir, en_output_dir, zh_output_dir, need_parse = False):
     """
@@ -67,6 +87,10 @@ def extract_mod_langs(mods_dir, en_output_dir, zh_output_dir, need_parse = False
                                 json_data = parse_lang_to_json(content)
                             else:
                                 json_data = json.loads(content)
+                            if os.path.exists(output_path):
+                                with open(output_path, 'r', encoding='utf-8') as f:
+                                    existing_content = json.load(f)
+                                    json_data.update(existing_content)
                             write_json(json_data, output_path)
                         print(f"提取 en: {en_file} -> {output_path}")
                     except Exception as e:
@@ -83,6 +107,10 @@ def extract_mod_langs(mods_dir, en_output_dir, zh_output_dir, need_parse = False
                                 json_data = parse_lang_to_json(content)
                             else:
                                 json_data = json.loads(content)
+                            if os.path.exists(output_path):
+                                with open(output_path, 'r', encoding='utf-8') as f:
+                                    existing_content = json.load(f)
+                                    json_data.update(existing_content)
                             write_json(json_data, output_path)
                         print(f"提取 zh: {zh_file} -> {output_path}")
                     except Exception as e:
@@ -92,6 +120,25 @@ def extract_mod_langs(mods_dir, en_output_dir, zh_output_dir, need_parse = False
             print(f"跳过损坏的 ZIP 文件: {zip_path}")
         except Exception as e:
             print(f"处理 ZIP 文件时出错: {zip_path}, 错误: {e}")
+
+def extract_cfpa(repo_dir, project_version, en_output_dir, zh_output_dir):
+    assets_dir = os.path.join(repo_dir, f'projects/{project_version}/assets')
+    if not os.path.isdir(assets_dir):
+        return
+    for root, paths, files in os.walk(assets_dir):
+        for file in files:
+            if not file.endswith(".json"):
+                continue
+            full_path = os.path.join(root, file)
+            rel_path = os.path.relpath(full_path, assets_dir).replace(os.sep, '/').removeprefix('/')
+            mod_name, namespace, _ = rel_path.split('/', 2)
+            if full_path.endswith("en_us.json"):
+                rename_path = os.path.join(en_output_dir, f"{namespace}.json")
+            elif full_path.endswith("zh_cn.json"):
+                rename_path = os.path.join(zh_output_dir, f"{namespace}.json")
+            else:
+                continue
+            shutil.copyfile(full_path, rename_path)
 
 def merge_lang_json(directory, output_file):
     # 存储最终合并后的对象
@@ -127,7 +174,7 @@ def merge_lang_json(directory, output_file):
     write_json(merged_json, output_file)
     print(f"\n✅ 合并完成，结果保存在：{output_file}")
 
-def generate_lang_map(merged_en_file, merged_zh_file, en2zh_file, untranslated_file, exist_translated_file):
+def generate_lang_map(merged_en_file, merged_zh_file, en2zh_file, untranslated_file, exist_translated_file=None, exist_map=None):
     # 读取英文和中文翻译文件
     en_data = read_json(merged_en_file)
     zh_data = read_json(merged_zh_file)
@@ -137,6 +184,9 @@ def generate_lang_map(merged_en_file, merged_zh_file, en2zh_file, untranslated_f
     # 存储翻译映射和未翻译的键
     en2zh = {}
     untranslated = {}
+
+    if exist_map and os.path.exists(exist_map):
+        en2zh.update(read_json(exist_map))
 
     # 遍历英文翻译
     for key in en_data:
